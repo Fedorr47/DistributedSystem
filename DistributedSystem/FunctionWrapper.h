@@ -10,21 +10,21 @@ public:
 
 	FunctionWrapper() = default;
 
-	template<class F, class... Args>
-	auto Bind(F&& f, Args&& ... args) -> std::future<typename std::result_of<F(Args...)>::type>
+	template<class Function, class... Args>
+	std::future<typename std::result_of<Function(Args...)>::type> Bind(Function&& InFunc, Args&& ... args)
 	{
-		using return_type = typename std::result_of<F(Args...)>::type;
+		using ReturnType = typename std::result_of<Function(Args...)>::type;
 
-		auto task = std::make_shared< std::packaged_task<return_type()>>(
-			std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+		std::shared_ptr<std::packaged_task<ReturnType()>> lTask = std::make_shared< std::packaged_task<ReturnType()>>(
+			std::bind(std::forward<Function>(InFunc), std::forward<Args>(args)...)
 			);
 
-		std::future<return_type> res = task->get_future();
+		std::future<ReturnType> Result = lTask->get_future();
 		{
-			mInternalFunction = [task]() { (*task)(); };
+			mInternalFunction = [lTask]() { (*lTask)(); };
 		}
 
-		return res;
+		return Result;
 	}
 
 	void operator()()
