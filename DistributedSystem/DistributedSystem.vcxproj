@@ -142,6 +142,7 @@
     <ClCompile Include="EntryPoint.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FunctionWrapper.h" />
     <ClInclude Include="JoinThreads.h" />
     <ClInclude Include="ThreadPool.h" />
     <ClInclude Include="ThreadSafeQueue.h" />
