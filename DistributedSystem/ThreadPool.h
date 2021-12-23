@@ -17,32 +17,32 @@ public:
 		->std::future<typename std::result_of<F(Args...)>::type>;
 	~ThreadPool();
 private:
-	std::vector< std::thread > workers_;
-	std::queue< std::function<void()> > tasks_;
+	std::vector< std::thread > mWorkers;
+	std::queue< std::function<void()> > mTasks;
 
-	std::mutex queue_mutex_;
-	std::condition_variable condition_;
-	bool stop_;
+	std::mutex mQueueMutex;
+	std::condition_variable mCondition;
+	bool mStop;
 };
 
 inline ThreadPool::ThreadPool(size_t threads)
-	: stop_(false)
+	: mStop(false)
 {
 	for (size_t i = 0; i < threads; ++i)
-		workers_.emplace_back(
+		mWorkers.emplace_back(
 			[this]
 			{
 				for (;;)
 				{
 					std::function<void()> task;
 					{
-						std::unique_lock<std::mutex> lock(this->queue_mutex_);
-						this->condition_.wait(lock,
-							[this] { return this->stop_ || !this->tasks_.empty(); });
-						if (this->stop_ && this->tasks_.empty())
+						std::unique_lock<std::mutex> lock(this->mQueueMutex);
+						this->mCondition.wait(lock,
+							[this] { return this->mStop || !this->mTasks.empty(); });
+						if (this->mStop && this->mTasks.empty())
 							return;
-						task = std::move(this->tasks_.front());
-						this->tasks_.pop();
+						task = std::move(this->mTasks.front());
+						this->mTasks.pop();
 					}
 					task();
 				}
@@ -62,24 +62,24 @@ auto ThreadPool::enqueue(F&& f, Args&& ... args)
 
 	std::future<return_type> res = task->get_future();
 	{
-		std::unique_lock<std::mutex> lock(queue_mutex_);
+		std::unique_lock<std::mutex> lock(mQueueMutex);
 
-		if (stop_)
+		if (mStop)
 			throw std::runtime_error("enqueue on stopped ThreadPool");
 
-		tasks_.emplace([task]() { (*task)(); });
+		mTasks.emplace([task]() { (*task)(); });
 	}
-	condition_.notify_one();
+	mCondition.notify_one();
 	return res;
 }
 
 inline ThreadPool::~ThreadPool()
 {
 	{
-		std::unique_lock<std::mutex> lock(queue_mutex_);
-		stop_ = true;
+		std::unique_lock<std::mutex> lock(mQueueMutex);
+		mStop = true;
 	}
-	condition_.notify_all();
-	for (std::thread& worker : workers_)
+	mCondition.notify_all();
+	for (std::thread& worker : mWorkers)
 		worker.join();
 }
